@@ -1,0 +1,66 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Source Code for Homework 7B
+
+# First steps consist of no code but rather process necessary for accessing the API
+
+# Set working directory to Desktop. This can be done using the setwd() function
+```{r}
+setwd("~/Desktop")
+```
+
+
+# Packages necessary for analysis:
+```{r}
+library(bitops)
+library(RCurl)
+library(ROAuth)
+library(rjson)
+library(streamR)
+library(twitteR)
+library(base64enc)
+```
+
+# Download the certificate for authentication to your desktop
+```{r}
+download.file(url = "http://curl.haxx.se/ca/cacert.pem", destfile = "cacert.pem")
+```
+
+# Create a file to store all the JSON data from the Twitter API
+```{r}
+outfile <- "tweets_sample.json"
+```
+
+# Set up all the configurations to authorize your Twitter application to access the data
+```{r}
+requestURL <- "https://api.twitter.com/oauth/request_token"
+accessURL <- "https://api.twitter.com/oauth/access_token"
+authURL <- "https://api.twitter.com/oauth/authorize"
+consumerKey <- "hIDz2dvFQ5cBvLOBnwDk9mim3"
+consumerSecret <- "tGjbPjzADUFFcvVAe5nA3cwJGJfayEntQqAOB5mAvo5288l39l"
+accessToken <- "749969959-6H2Gi16A9i28nVBKAP8cZHJZwHByjd97D5X08Ch"
+accessTokenSecret <- "CKxWDP5GTpsKS2HR31vQ5qkZlqRE1koQPMod0kKlIkRrZ"
+```
+
+# Allow application to obtain access to the HTTP by authenticating the user via OAuth
+# handshake and then save the OAuth certificate locally
+```{r}
+my_oauth <- OAuthFactory$new(
+  consumerKey = consumerKey,
+  consumerSecret = consumerSecret,
+  requestURL = requestURL,
+  accessURL = accessURL,
+  authURL = authURL
+)
+
+my_oauth$handshake(cainfo = "cacert.pem")
+```
+
+# Register the credentials by setting up OAuth credentials for a Twitter session
+```{r}
+setup_twitter_oauth(consumerKey, consumerSecret, accessToken, accessTokenSecret)
+```
+

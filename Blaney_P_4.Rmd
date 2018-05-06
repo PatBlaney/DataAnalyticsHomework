@@ -1,0 +1,277 @@
+---
+title: "DA5020 Homework 4: Strings and Factors"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  # mute messages output
+  message = FALSE
+)
+```
+
+## Preparation
+
+Libraries needed to complete analysis:
+tidyverse (Both stringr and forcats packages are included in tidyverse)
+readxl
+
+Downloaded [Farmers Markert Directory](https://www.ams.usda.gov/local-food-directories/farmersmarkets) data from the website of USDA (click on "Export to Excel").
+File named farmers_market.csv. 
+
+Downloaded the [Know Your Farmer, Know Your Food Projects](https://catalog.data.gov/dataset/know-your-farmer-know-your-food-projects) dataset.
+File named kyfprojects.xls
+
+Read in datasets from downloaded files:
+
+```{r, eval = FALSE, echo = TRUE}
+farmers_market_dataset <- read_csv("farmers_market.csv", col_names = TRUE)
+kyfprojects_dataset <- read_xls("kyfprojects.xls", col_names = TRUE)
+```
+
+
+## Warm Up
+
+This dataset stores city and state in different columns, what if you want to
+print out city and state in the format "City, State"?
+
+```{r, eval = FALSE }
+farmers_market_dataset_warm_up <- farmers_market_dataset %>%
+  mutate("City, State" = str_c(city, State, sep = ", "))
+```
+
+
+## Questions
+
+1. (20 points) Cleanup the `Facebook` and `Twitter` column to let them contain only the facebook username or twitter handle name. I.e., replace "https://www.facebook.com/pages/Cameron-Park-Farmers-Market/97634216535?ref=hl" with "Cameron-Park-Farmers-Market", "https://twitter.com/FarmMarket125th" with "FarmMarket125th", and "\@21acres" with "21acres".
+
+Modifications to the Facebook column. Any sequence of numbers left are intended as they are uniquely associated with the specific Facebook profile. To demonstrate this, simply Google the sequence of numbers "478915098830452" from row 187. This will bring you to the Facebook profile associated with this farmers market.
+First remove any lines that contain the full web address.
+Then any uniques lines of the web address that did not get removed intitially. 
+Finally, remove any ending characters that started with either a '/' or '?'.
+
+```{r, eval = FALSE, echo = TRUE}
+farmers_market_dataset$Facebook <- 
+  str_replace_all(farmers_market_dataset$Facebook, "(.*)\\.com/", "") %>% 
+  str_replace_all("groups/|pages/", "") %>% 
+  str_replace_all("/(.*)$|\\?(.*)|(@)", "")
+```
+
+Modifications to the Twitter column. 
+First remove any lines that contain the full web address.
+Then remove any '@' characters (along with anything that preceded it) as well as any random special character at the end of the username. 
+Finally, remove any character grouping that started with a '?' and, for a few cases, remove any characters that were part of the web address that didnt get removed.
+
+```{r, eval = FALSE, echo = TRUE}
+farmers_market_dataset$Twitter <- 
+  str_replace_all(farmers_market_dataset$Twitter, "(.*)\\.com/", "") %>% 
+  str_replace_all("(.*)@|[/&]$", "") %>%
+  str_replace_all("\\?(.*)|(#!/)", "")
+```
+
+
+2. (20 points) Clean up the `city` and `street` column. Remove state and county names from the `city` column and consolidate address spellings to be more consistent (e.g. "St.", "ST.", "Street" all become "St"; "and" changes to "&", etc...).
+
+Modification to the city colunm.
+First, remove any unneeded State designations that are either preceded by a ',' or stand alone as two capital letters at end of the string. Also, for some special cases, remove extra characters after city name, separated by a '/'.
+Next, remove any added zip codes after the city name as well as, in some cases, a prefix of 'City of ' or unneeded numbers.
+Finally, replace the '=' that witha '-' in some cases.
+
+```{r, eval = FALSE, echo = TRUE}
+farmers_market_dataset$city <- 
+  str_replace_all(farmers_market_dataset$city, "[(,/](.*)| [A-Z]+$", "") %>%  
+  str_replace_all("([Cc]ity of )| [\\d]+|^[\\d]+", "") %>%
+  str_replace_all("=", "-")
+```
+
+Modification of the street column.
+First, captrue all versions of street to replace with abbreviation 'St'
+Then, apply normalization to other versions to a standard abbreviation.
+Each part is identified by comments preceding code.
+
+```{r, eval = FALSE, echo = TRUE}
+# Normalizing all versions of street to abbreviation 'St'
+farmers_market_dataset$street <- 
+  str_replace_all(farmers_market_dataset$street, 
+                  regex("streets|street", ignore_case = TRUE), "St") %>%
+  str_replace_all(regex(" st[\\. ]+", ignore_case = TRUE), " St ") %>%
+  str_replace_all(regex("sts[\\. ]+", ignore_case = TRUE), "St ")
+
+# Replacing word 'and' with '&'
+farmers_market_dataset$street <- 
+  str_replace_all(farmers_market_dataset$street, 
+                  regex(" and ", ignore_case = TRUE), " & ") 
+
+# Normalizing all versions of road to abbreviation 'Rd'
+farmers_market_dataset$street <- 
+  str_replace_all(farmers_market_dataset$street, 
+                  regex(" (rd\\.|rd)", ignore_case = TRUE), " Rd") %>%
+  str_replace_all(regex(" road", ignore_case = TRUE), " Rd")
+
+# Normalizing all versions of avenue to 'Ave'
+farmers_market_dataset$street <-
+  str_replace_all(farmers_market_dataset$street, 
+                  regex("avenue", ignore_case = TRUE), "Ave") %>%
+  str_replace_all(regex(" (ave\\.|ave)", ignore_case = TRUE), " Ave")
+
+# Normalizing all versions of drive to 'Dr'
+farmers_market_dataset$street <-
+  str_replace_all(farmers_market_dataset$street, 
+                  regex("drive", ignore_case = TRUE), "Dr") %>%
+  str_replace_all(regex(" (dr\\.|dr)", ignore_case = TRUE), " Dr")
+
+# Normalizing all versions of lane to 'Ln'
+farmers_market_dataset$street <-
+  str_replace_all(farmers_market_dataset$street, 
+                  regex("lane", ignore_case = TRUE), "Ln") %>%
+  str_replace_all(regex(" (ln\\.|ln)", ignore_case = TRUE), " Ln")
+
+# Normalizing all versions of boulevard to 'Blvd'
+farmers_market_dataset$street <-
+  str_replace_all(farmers_market_dataset$street, 
+                  regex("boulevard", ignore_case = TRUE), "Blvd") %>%
+  str_replace_all(regex(" (blvd\\.|blvd)", ignore_case = TRUE), " Dr")
+```
+
+
+3. (20 points) Create a new data frame (tibble) that explains the online presence of each state's farmers market. I.e., how many percentages of them have a facebook account? A twitter account? Or either of the accounts? (Hint: use the `is.na()` function)
+
+The tibble includes 53 rows (This number comes from the 50 states plus the District of Columbia, Puerto Rico, and the Virgin Islands). 
+
+```{r, eval = FALSE, echo = TRUE}
+# Isolation of vectors for tibble
+individual_states <- as.factor(farmers_market_dataset$State)
+total_number_of_farmers_markets_per_state <- as_tibble(individual_states) %>%
+  count(value) %>%
+  select(n)
+facebook_numbers_per_state <- farmers_market_dataset %>%
+  group_by(State) %>%
+  summarise(
+    without_facebook = sum(is.na(Facebook)),
+    with_facebook = sum(!is.na(Facebook))
+  )
+twitter_numbers_per_state <- farmers_market_dataset %>%
+  group_by(State) %>%
+  summarise(
+    without_twitter = sum(is.na(Twitter)),
+    with_twitter = sum(!is.na(Twitter))
+  )
+farmers_markets_with_either_social_media <- farmers_market_dataset %>%
+  group_by(State) %>%
+  summarise(
+    states_with_either_social_media = sum(!is.na(Twitter) | !is.na(Facebook)),
+    states_with_neither_social_media = sum(is.na(Twitter) & is.na(Facebook))
+  )
+
+# Creating tibble
+social_media_presence <- tibble(
+  `State` = levels(individual_states),
+  `Total Number of Farmers Markets` = as_vector(total_number_of_farmers_markets_per_state),
+  `% of Farmers Markets with Facebook` = 
+    (facebook_numbers_per_state$with_facebook / `Total Number of Farmers Markets`) * 100,
+  `% of Farmers Markets with Twitter` = 
+    (twitter_numbers_per_state$with_twitter / `Total Number of Farmers Markets`) * 100,
+  `% of Farmers Markets with Either Twitter or Facebook` =
+    (farmers_markets_with_either_social_media$states_with_either_social_media /
+       `Total Number of Farmers Markets`) * 100
+)
+```
+
+
+4. (20 points) 
+Some of the farmer market names are quite long. Can you make them shorter by using the `forcats::fct_recode` function? Create a plot that demonstrates the number of farmers markets per location type. The locations should be ordered in descending order where the top of the graph will have the one with the highest number of markets.
+
+
+```{r, eval = FALSE, echo = TRUE}
+# Setting initial levels to insure NA level is included
+farmers_market_location_levels <- c(
+  "Closed-off public street", 
+  "Co-located with wholesale market facility",
+  "Educational institution", 
+  "Faith-based institution (e.g., church, mosque, synagogue, temple)",
+  "Federal/State government building grounds", 
+  "Healthcare Institution",
+  "Local government building grounds", 
+  "On a farm from: a barn, a greenhouse, a tent, a stand, etc",
+  "Other", 
+  "Private business parking lot", 
+  "NA"
+)
+
+# Creation of all data as a factor with correct levels
+farmers_market_dataset %>%
+  mutate(Location = factor(farmers_market_dataset$Location, 
+                           levels = farmers_market_location_levels)) 
+
+# Recode the levels to make more concise, combine similar levels into single level
+# Combine 'NA' into 'Other', combine 'Federal/State government building grounds' with 
+# 'Local government building grounds' into one level, 
+farmers_market_dataset %>%
+  mutate(Location = fct_recode(farmers_market_location_factor,
+    "Public Street" = "Closed-off public street",
+    "Wholesale Market Facility" = "Co-located with wholesale market facility",
+    "Faith-Based Institution" = "Faith-based institution (e.g., church, mosque, synagogue, temple)",
+    "Federal/State/Local Gov. Grounds" = "Federal/State government building grounds",
+    "Federal/State/Local Gov. Grounds" = "Local government building grounds",
+    "Farm" = "On a farm from: a barn, a greenhouse, a tent, a stand, etc",
+    "Private Lot" = "Private business parking lot",
+    "Other" = "NA"
+    ) 
+  )
+ 
+# Bar graph to demonstrate the number of markets per location level, with the location with
+# the highest number of markets at the top
+farmers_market_dataset %>%
+    mutate(Location = fct_recode(farmers_market_location_factor,
+    "Public Street" = "Closed-off public street",
+    "Wholesale Market Facility" = "Co-located with wholesale market facility",
+    "Faith-Based Institution" = "Faith-based institution (e.g., church, mosque, synagogue, temple)",
+    "Federal/State/Local Gov. Grounds" = "Federal/State government building grounds",
+    "Federal/State/Local Gov. Grounds" = "Local government building grounds",
+    "Farm" = "On a farm from: a barn, a greenhouse, a tent, a stand, etc",
+    "Private Lot" = "Private business parking lot",
+    "Other" = "NA"
+    ) 
+  ) %>%
+  mutate(Location = Location %>% fct_infreq() %>% fct_rev()) %>%
+  ggplot(aes(Location)) +
+    geom_bar() +
+    coord_flip()
+```
+
+5. (20 points) Write code to sanity check the `kyfprojects` data. For example, does `Program Abbreviation` always match `Program Name` for all the rows? (Try thinking of your own rules, too.)
+
+```{r, eval = FALSE, echo = TRUE}
+# Create a tibble of test abbreviations by taking the first letter from each word in the
+# 'Program Name' column. 
+# This appears to be the pattern that was used for creating the 'Program Abbreviation' 
+# colunm
+program_abbreviations <- as_tibble(
+  str_replace_all(kyfprojects_dataset$`Program Name`, "[^A-Z]", "")
+)
+
+# Compare the test abbreviations created above to the ones provided in 
+# the 'kyfprojects_dataset'
+test_of_program_abbreviations <- as_tibble(
+  program_abbreviations == kyfprojects_dataset$`Program Abbreviation`)
+
+# Determines the number of times the tested abbreviation exactly matches 
+# the ones provided in the dataset
+number_of_matches <- str_count(tested_program_abbreviations, "TRUE")
+
+# Determines the number of times the tested abbreviation does not match 
+# the ones provided in the dataset
+number_of_nonmatches <- str_count(tested_program_abbreviations, "FALSE")
+```
+
+```{r, eval = FALSE, echo = TRUE}
+# Second Test
+# There should always be a reported 'Funding Amount' 
+reported_funding_amount <- kyfprojects_dataset %>%
+  group_by(`Funding Type`) %>%
+  summarise(
+    `Correctly Reported` = sum(!is.na(`Funding Amount ($)`)),
+    `Incorrectly Reported` = sum(is.na(`Funding Amount ($)`))
+  )
+```

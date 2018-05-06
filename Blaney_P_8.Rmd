@@ -1,0 +1,213 @@
+---
+title: "DA5020 - Week 8 Assignment Web Scraping Programaically"
+output:
+  pdf_document: default
+  word_document: default
+date: '`r Sys.Date()`'
+geometry:
+  - margin=0.7in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  # mute messages output
+  message = FALSE
+)
+```
+
+# Libraries needed for analysis
+tidyverse
+knitr
+rvest
+(Additionally, I used the Google Chrome extension of SelectorGadget to identify the CSS
+selector for each part being scraped)
+```{r}
+library(tidyverse)
+library(knitr)
+library(rvest)
+```
+
+
+## Questions
+
+1. (20 points) Retrieve the contents of the first webpage for the yelp search as specified in Assignment 7 and write R statements to answer the following questions on the retrieved contents:
+
+- How many nodes are direct descendents of the HTML `<body>` element (the actual visible content of a web page)?
+
+# ANSWER: There are 38 direct decendents of the HTML `<body>` element.
+
+- What are the nodes names of the direct descendents of the `<body>`?
+
+# ANSWER: The names are `<script>`, `<noscript>`, `<div>`, `<svg>`, `<link>`, or `<iframe>`
+
+- How many of these direct descendents have an `id` attribute?
+
+# ANSWER: Only 5 have an `id` attribute
+
+- What is the css selector to select restaurants that are advertisements? (You may not see the ads if you are logged in on Yelp or have an ad blocker running.)
+
+# ANSWER: '.yloca-search-result .js-analytics-click span'
+
+Here's some code to help you get started:
+
+```{r}
+page <- read_html("https://www.yelp.com/search?find_desc=burgers&start=0&l=Boston,MA")
+
+# list the children of the <html> element (the whole page)
+html_children(page)
+
+# get the root of the actual html body
+root <- html_node(page, 'body')
+```
+
+
+
+2. (50 points) Modify following parameterized function `get_yelp_sr_one_page` to extract a list of businesses on Yelp, for a specific search keyword, a specific location and a specific page of results.
+``` {r}
+get_yelp_sr_one_page <- function(keyword, loc="Boston, MA", page="0") {
+  # Scrape Yelp's search results page for a list of businesses 
+  # Args:
+  #   keyword - the keyword for a search query, the "&find_desc=" parameter
+  #   loc - the location to search for, the "&find_loc=" parameter in the url
+  # Return:
+  #   A data frame containing burger restaurant contents in one search
+  #   results.
+  
+  # The page number of the results corresponds to the "start=" portion of the url. The number used in this part are only in
+  # multiples of 10 (starting at 0 for page 1 of results). Here we convert the desired page number of results list to the proper
+  # number for the url to call
+  
+  page <- as.character((page * 10) - 10)
+  
+  # parameterize the search results URL
+  yelp_url <- 'https://www.yelp.com/search?find_desc=%s&find_loc=%s&start=%s'
+  # `sprintf` replace "%s" with positional arguments following the string
+  # `URLencode` ensures blank spaces in the keywords and location are
+  # properly encoded, so that yelp will be able to recognize the URL
+  yelp_url <- sprintf(yelp_url, URLencode(keyword), URLencode(loc), URLencode(page))
+  
+  yelpsr <- read_html(yelp_url)
+  
+  # `html_nodes` allow us to extract pieces from an html document using
+  # XPath or css selectors. Most of the time, you would only use css selectors
+  # since they are much easier to interpret.
+  
+  # Here we use `.regular_search-result` to exclude ad entries
+  # since ad entries do not have this class.
+  # We single out the items first so we can safely use simpler selectors
+  # to extract information inside each item
+  items <- yelpsr %>%
+    html_nodes("li.regular-search-result")
+  
+  links <- items %>% html_nodes("a.biz-name")
+  # trim=T (trim = True) removes whitespaces between html text
+  names <- links %>% html_text(trim=T)
+  urls <-  links %>%
+    html_attr("href") %>%
+    # cleanup useless url parameters (which are used
+    # by yelp for analytical tracking purpose)
+    str_replace("\\?osq=.*", "")
+  pricelevels <- items %>%
+    html_nodes(".business-attribute.price-range") %>%
+    html_text(trim=T)
+  serv_category <- yelpsr %>%
+    html_nodes(".natural-search-result .price-category") %>%
+    html_text() %>%
+    str_replace_all("[\\n$]", "") %>%
+    str_replace_all("( ){2,}", "") %>%
+    str_replace_all(",", ", ")
+  average_rating <- yelpsr %>%
+    html_nodes(".natural-search-result .rating-large") %>%
+    html_attrs() %>%
+    as.data.frame() %>%
+    t() %>%
+    as_tibble() %>%
+    select("title") %>%
+    as_vector()
+  review_count <- yelpsr %>%
+    html_nodes(".natural-search-result .rating-qualifier") %>%
+    html_text(trim = T)
+  neighborhood_name <- yelpsr %>%
+    html_node(".natural-search-result .neighborhood-str-list") %>%
+    html_text(trim = T)
+  telephone_number <- yelpsr %>%
+    html_node(".natural-search-result .biz-phone") %>%
+    html_text(trim = T)
+  street_address <- yelpsr %>%
+    html_nodes(".natural-search-result address") %>%
+    html_text(trim = T) %>%
+    str_extract("\\d+ (\\w+) [A-Z][a-z]+")
+  city <- yelpsr %>%
+    html_nodes(".natural-search-result address") %>%
+    html_text(trim = T) %>%
+    str_extract("[A-Z][a-z]+, ") %>%
+    str_replace(", ", "")
+  state <- yelpsr %>%
+    html_nodes(".natural-search-result address") %>%
+    html_text(trim = T) %>%
+    str_extract(", [A-Z]+") %>%
+    str_replace(", ", "")
+  zipcode <- yelpsr %>%
+    html_nodes(".natural-search-result address") %>%
+    html_text(trim = T) %>%
+    str_extract("[\\d]+$")
+  review_list_url <- yelpsr %>%
+    html_node(".natural-search-result .nowrap") %>%
+    html_attr("href") %>%
+    str_replace("\\?osq=.*", "")
+  
+  # return a data frame
+  tibble(
+    "name" = names,
+    "url" = urls,
+    "price" = pricelevels,
+    "service categories" = serv_category,
+    "average rating" = average_rating,
+    "total # of reviews" = review_count,
+    "neighborhood" = neighborhood_name,
+    "telephone number" = telephone_number,
+    "street address" = street_address,
+    "city" = city,
+    "state" = state,
+    "zipcode" = zipcode,
+    "reviews list url" = review_list_url
+  )
+}
+
+get_yelp_sr_one_page("burgers", page = 2)
+```
+
+
+Add a parameter to the `get_yelp_sr_one_page` function so that it can scrape other pages other than the first page. E.g.,
+`get_yelp_sr_one_page("burgers", page=2)` should return the results in the second page.
+
+The modified function should return a data frame that contains the following information:
+
+- restuarant name
+- url to the yelp page of the restaurant
+- price level
+- service categories
+- telphone number
+- restuarant's neighborhood name, street address, city, state, and zipcode, all in separate columns
+- average rating
+- number of reviews
+- URL to the restaurant's reviews list
+
+3. (20 points) Write a function that reads multiple pages of the search results of any search keyword and location from Yelp.
+
+Note that for some queries, Yelp may get a different number of results per page. You would need to either change the way you calculate the URL parameter, or use the `distinct(df)` function to remove duplicate rows.
+
+# Use a function that will take the total number of pages that are desired to be searched and use a for loop to cycle through
+# each page and run the get_yelp_sr_one_page function each idividual page.
+```{r}
+multi_page_yelp_scrap <- function(keyword, loc="Boston, MA", pages="0") {
+  for (i in seq_along(pages)) {
+    get_yelp_sr_one_page(keyword, loc, i)
+    Sys.sleep(0.5)
+  }
+}
+
+multi_page_yelp_scrap("buffet", pages = 2)
+```
+
+4. (10 points) Optimize your function in question 3, add a small wait time (0.5s for example) between each request, so that you don't get banned by Yelp for abusing their website (hint: use `Sys.sleep()`).

@@ -1,0 +1,229 @@
+---
+title: "DA5020 - Week 12 MongoLite"
+output:
+  pdf_document: default
+  word_document: default
+date: '`r Sys.Date()`'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  # mute messages output
+  message = FALSE
+)
+```
+
+Libraries required for analysis:
+```{r}
+library(tidyverse)
+library(mongolite)
+```
+
+Initialize the enviromental variable to store the connection information between the database
+and this R session
+```{r}
+mongoLibrary <- mongo("library")
+```
+
+## Questions
+
+1. Load the given .csv files into R and explore the data. Design a schema suitable for storing the data in the document-based data store (Mongo DB database). Using your designed schema store the data in MongoDB and answer some queries on the data. MongoDB provides an API for retrieving data as oppose to SQL. (30 points)
+
+There are books, publishers, authors, and library users.  Here are the cardinality
+relationships:
+  A user can have multiple addresses
+  A book can have multiple publishers
+  Publishers can have multiple addresses
+  A book can have many notes /comments written by library users
+  A book can belong to multiple categories
+
+# Load in the csv files containing authors, books, publishers, and users
+```{r}
+authors <- read_csv("MongoHwk/authors.csv")
+books <- read_csv("MongoHwk/Books.csv")
+publishers <- read_csv("MongoHwk/Publishers.csv")
+users <- read_csv("MongoHwk/Users.csv")
+```
+
+# Organize data from csv files into a data frame from that works best with instert function
+# of the mongolite package
+```{r}
+author_info <- data.frame(
+  "Author" = rep("Author", 5),
+  "FirstName" = authors$`first name`,
+  "LastName" = authors$`last name`,
+  "DOB" = authors$dob
+)
+
+publisher_info <- data.frame(
+  "Publisher" = rep("Publisher", 4),
+  "Name" = publishers$name,
+  "Date" = publishers$date,
+  "Street" = publishers$street,
+  "City" = publishers$city,
+  "Zip" = publishers$zip,
+  "State" = publishers$state,
+  "Country" = publishers$country
+)
+
+user_info <- data.frame(
+  "User" = rep("User", 7),
+  "Username" = users$username,
+  "Password" = users$password,
+  "Active" = users$active,
+  "DateOfCreation" = users$dateOfCreation,
+  "Street" = users$street,
+  "City" = users$city,
+  "Zip" = users$zip,
+  "State" = users$state,
+  "Country" = users$country
+)
+
+book_info <- data.frame(
+  "Book" = rep("Book", 4),
+  "Title" = books$title,
+  "Author" = books$author,
+  "ISBN" = books$isbn,
+  "Publishers" = c(books$publisher, books$publisher_1),
+  "Available" = books$available,
+  "Pages" = books$pages,
+  "Summary" = books$summary,
+  "Categories" = c(books$subjects, books$subjects_1),
+  "UserNotes" = c(books$notesuser, books$notesuser_1),
+  "BodyOfNote" = c(books$notebody, books$notebody_1),
+  "Language" = books$language
+)
+```
+
+
+# Insert the 4 different data frames into the Mongo database
+```{r}
+mongoLibrary$insert(author_info)
+mongoLibrary$insert(publisher_info)
+mongoLibrary$insert(user_info)
+mongoLibrary$insert(book_info)
+```
+
+
+2. Write Mongo expressions to answer the following queries: (50 points) 
++ 2.0 How many books are in the collection?
+
+```{r}
+different_books <- mongoLibrary$distinct("Title")
+length(different_books)
+```
+
+
++ 2.1 Retrieve all information on all of the books (All data associated with the books the book data, the author data, the publisher's data).
+
+```{r}
+mongoLibrary$export(file("book_info.txt"))
+mongoLibrary$export(file("author_info.txt"))
+mongoLibrary$export(file("publisher_info.txt"))
+```
+
+
++ 2.2 Retrieve all information on the books where the author =  'Danielle Steele'
+
+```{r}
+mongoLibrary$find('{"Author":"Danielle Steel"}')
+
+# mongoLibrary$find('{"Author":"Danielle Steele"}')
+```
+# Technically there is no author = "Danielle Steele" instead there is a "Danielle Steel". 
+
+
++ 2.3 Retrieve all information on the users where the user id creation is  > 15 DEC 2014 and the city = 'Boston' .
+
+```{r}
+mongoLibrary$find('{"City":"Boston", "User":"User"}')
+
+mongoLibrary$find('{"DateOfCreation":"9/20/2015"}')
+mongoLibrary$find('{"DateOfCreation":"4/20/2015"}')
+```
+
+
++ 2.4 Retrieve all information on books that have multiple publishers.
+
+```{r}
+mongoLibrary$find('{"Title": "Southern Lights"}')
+```
+
+
++ 2.5 Retrieve all information on the books that have  Notes.
+
+```{r}
+mongoLibrary$find('{"UserNotes":"jason"}')
+mongoLibrary$find('{"UserNotes":"jen"}')
+```
+
+
++ 2.6 What is the minimal date associated with a publisher?
+
+```{r}
+mongoLibrary$find('{"Publisher":"Publisher"}', sort = '{"Date":1}')
+```
+
+
++ 2.7 Which state contains the most number of users?
+
+```{r}
+mongoLibrary$distinct("State")
+mongoLibrary$find('{"State":"New York", "User":"User"}')
+mongoLibrary$find('{"State":"California", "User":"User"}')
+mongoLibrary$find('{"State":"Massachusetts", "User":"User"}')
+```
+
+
++ 2.8 In the year 2015, how many users joined the library?
+
+```{r}
+users_2015 <- user_info$DateOfCreation %>% str_extract(".*/2015") %>% unique()
+mongoLibrary$count('{"DateOfCreation":"4/20/2015"}') + mongoLibrary$count('{"DateOfCreation":"9/20/2015"}')
+
+```
+
+
++ 2.9 Return the zipcode with the most number of users?
+
+```{r}
+mongoLibrary$distinct("Zip")
+zip_94303 <- mongoLibrary$find('{"Zip":"94303", "User":"User"}')
+zip_02143 <- mongoLibrary$find('{"Zip":"02143", "User":"User"}')
+zip_02145 <- mongoLibrary$find('{"Zip":"02145", "User":"User"}')
+zip_02140 <- mongoLibrary$find('{"Zip":"02140", "User":"User"}')
+
+nrow(zip_94303)
+nrow(zip_02145)
+nrow(zip_02143)
+nrow(zip_02140)
+
+mongoLibrary$find('{"Zip":"02140", "User":"User"}')
+```
+
+
+3. Please read the attached benchmark white papers, one created by MongoDB comparing Cassandra, Couchbase and MongoDB. It can be found online at: https://www.mongodb.com/collateral/comparative-benchmarks-mongodb-vs-couchbase-vs-cassandra. The other paper prepared by Avalon Consulting comparing MongoDB and Couchbase. It can be found at: http://info.couchbase.com/rs/northscale/images/couchbase_benchmark.pdf
+Please document your knowledge of the 3 different database systems and your interpretation of the results of these two reports. Given your knowledge of the CAP theorem and the differences between these three NoSQL databases, please state any biases you identified in either report. Please explain the inconsistent results from the two reports. (20 points)
+
+# Answer to Question 3
+My deeper understanding of MongoDB certainly assisted in learning the background of the other
+two, Couchbase and Cassandra. While both MongoDB and Couchbase are document oriented
+databases, Cassandra on the hand is columnar. MongoDB appears to be very well rounded when
+handling high amounts of reads or updates. Cassandra is slightly less powerful in this
+regard. Couchbase is very strong for availability, high throughput, low delay, but lacks in
+keeping data wholely intact.
+
+The first paper has a emphasis on consistency as it talks about the durability of the both
+Cassandra and MongoDB. It even gives snippets right from the documentation of the two DB
+systems about their system for committing writes to the DB to ensure durability of data.
+
+The second paper really focuses on the availability of the DB systems. This does not really
+fit the model that they are looking to put the DB into: A single enterprise where you usually
+want consistency of data rather rapid, easy access.
+
+There seemed to be a clear bias in the second paper that compared MongoDB to Couchbase. To me
+it seemed like the authors favored Couchbase, this is based on the set up of the topology
+maps, the wording used in the descriptions of the maps, and also the infrustructor set up.
+Additionally, the first paper helps give the idea that Couchbase excels at high throughput 
+where as MongoDB does not do as well. Thus, the second paper was testing for something that 
+was designed to give good results in the test enviroment they used.

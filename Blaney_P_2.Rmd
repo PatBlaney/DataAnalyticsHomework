@@ -1,0 +1,147 @@
+---
+title: "Homework 2"
+author: "Patrick Blaney"
+date: "January 21, 2018"
+output: pdf_document
+---
+
+Packages required for completion of assignment:
+tidyverse
+gapminder
+
+Load and assign the CSV file of data needed to complete assignment
+```{r, echo=TRUE}
+surveys <- read.csv("surveys.csv", header = T, sep = ",")
+```
+
+This loads the surveys.csv data into the surveys data frame. The fields in the data table are the following:
+record_id : a unique number for each row in the table
+month : Month when the observation was made
+day: Calendar day the observation was made
+year: Year the observation was made
+plot_id: the area the measurement was taken
+species_Id: species id, please see https://github.com/weecology/portal-teachingdb/blob/master/species.csv for more information
+sex: sex of the observation Male or Female
+hindfoot: length of the hindfoot
+weight: weight of the animal
+
+Question 1
+The code below filters the survey to display on the first 3 months of the year 1990.
+```{r}
+jan_feb_mar_1990 <- filter(surveys, year == 1990, month %in% c(1, 2, 3))
+```
+
+Question 2
+The code below sorts the record ID by decending order of the winter months (December, January, February) in the year 1990.
+```{r}
+winter_1990_record_id <- surveys %>%
+  group_by(year = 1990) %>%
+  filter(month %in% c(12, 1, 2)) %>%
+  arrange(desc(record_id), .by_group = TRUE)
+```
+
+The code below sorts the weight by ascending order of the winter months (December, January, February) in the year 1990
+```{r}
+winter_1990_weight <- surveys %>%
+  group_by(year = 1990) %>%
+  filter(month %in% c(12, 1, 2)) %>%
+  arrange(weight, .by_group = TRUE)
+```
+
+Question 3
+The code below shows record id, sex, and weight of all Reithrodontomys montanus
+```{r}
+reithrodontomys_montanus <- surveys %>%
+  filter(species_id == "RO") %>%
+  select(record_id, sex, weight)
+```
+
+Question 4
+The code below shows the average weight and hindfoot length of all Dipodomys merriami for each month
+```{r}
+dipodomys_merriami <- surveys %>%
+  filter(species_id == "DM") %>%
+  group_by(month) %>%
+  summarise(
+    avg_weight = mean(weight, na.rm = TRUE),
+    avg_hindfoot_length = mean(hindfoot_length, na.rm = TRUE)
+  )
+```
+
+Question 5
+The code below gives the total count of different species in the winter (December, January, February) of the year 1990
+```{r}
+species_count_winter_1990 <- surveys %>%
+  group_by(year = 1990) %>%
+  filter(month %in% c(12, 1, 2)) %>%
+  summarise(
+    number_of_diff_species = n_distinct(species_id, na.rm = TRUE)
+  )
+```
+
+Question 6
+The code below creates a dataframe of the gapminder data and adds a column which outputs the gross domestic product (GDP) for each row.
+```{r}
+(gapminder_df <- as.data.frame(gapminder) %>%
+  mutate(GDP = gdpPercap * pop))
+```
+
+Question 7
+The code below calculates the mean GDP for Cambodia for the years within the dataset
+```{r}
+cambodia_mean_gdp <- gapminder_df %>%
+  filter(country == "Cambodia") %>%
+  summarise(
+    Mean_GDP = mean(GDP, na.rm = TRUE)
+  )
+```
+
+Question 8
+The code below determines the maximum life expectancy for all countries in Asia then arranges them in decending order by year.
+```{r}
+life_expectancy_asia <- gapminder_df %>%
+  filter(continent == "Asia") %>%
+  group_by(country) %>%
+  summarise(
+    max_life_expectancy = max(lifeExp),
+    year_of_max = max(year)
+  )
+```
+
+Question 9
+The code below counts the number of observed data points per continent
+```{r}
+observations_per_continent <- gapminder_df %>%
+  group_by(continent) %>%
+  summarise(
+    observations = n_distinct(gdpPercap)
+  )
+```
+
+Question 10
+The code below computes the average and median life expectancy and GDP per capita for each continent for the years 1952 and 2007
+```{r}
+optimisim_trend_1952 <- gapminder_df %>%
+  filter(year == 1952) %>%
+  group_by(continent) %>%
+  summarise(
+    avg_life_expectancy = mean(lifeExp, na.rm = TRUE),
+    median_life_expectancy = median(lifeExp, na.rm = TRUE),
+    avg_gdp_per_capita = mean(gdpPercap, na.rm = TRUE),
+    median_gdp_per_capita = median(gdpPercap, na.rm = TRUE)
+  )
+```
+
+```{r}
+optimisim_trend_2007 <- gapminder_df %>%
+  filter(year == 2007) %>%
+  group_by(continent) %>%
+  summarise(
+    avg_life_expectancy = mean(lifeExp, na.rm = TRUE),
+    median_life_expectancy = median(lifeExp, na.rm = TRUE),
+    avg_gdp_per_capita = mean(gdpPercap, na.rm = TRUE),
+    median_gdp_per_capita = median(gdpPercap, na.rm = TRUE)
+  )
+```
+ 
+Based on the increase across the average life expectancy and average GDP per capita, we should be optimistic. Although, there are factors that play into both statistics reaching a plateau as years go on and we may be reaching that point. 

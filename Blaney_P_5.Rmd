@@ -1,0 +1,253 @@
+---
+title: "DA5020 - Homework 5: Dates and Times"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  # mute messages output
+  message = FALSE
+)
+```
+
+# Libraries needed to complete analysis:
+# tidyverse
+# lubridate
+
+# Downloaded [Farmers Markert
+# Directory](https://www.ams.usda.gov/local-food-directories/farmersmarkets) data from the
+# website of USDA (click on "Export to Excel").
+# File named farmers_market.csv. 
+
+# Read in datases from downloaded file:
+```{r, eval = FALSE, echo = TRUE}
+farmers_market_dataset <- read_csv("farmers_market.csv", col_names = TRUE)
+```
+
+
+## Questions
+
+1. (10 points) Add a new column `Season1Days` that contains the number of days a market is opened per week (for the dates it is open).
+
+# Using the abbreviations for the days of the week that each farmers market is open in the
+# 'Season1Time' column, create a tibble that returns a list of TRUE or FALSE if the day of
+# the week is found in the column. Count the number of TRUEs to determine how many days of
+# the week each market is open.
+```{r, eval = FALSE, echo = TRUE}
+openMondays <- farmers_market_dataset$Season1Time %>%
+  str_detect(regex("Mon", ignore_case = TRUE))
+
+openTuesdays <- farmers_market_dataset$Season1Time %>%
+  str_detect(regex("Tue", ignore_case = TRUE))
+
+openWednesdays <- farmers_market_dataset$Season1Time %>%
+  str_detect(regex("Wed", ignore_case = TRUE))
+
+openThursdays <- farmers_market_dataset$Season1Time %>%
+  str_detect(regex("Thu", ignore_case = TRUE))
+
+openFridays <- farmers_market_dataset$Season1Time %>%
+  str_detect(regex("Fri", ignore_case = TRUE))
+
+openSaturdays <- farmers_market_dataset$Season1Time %>%
+  str_detect(regex("Sat", ignore_case = TRUE))
+
+openSundays <- farmers_market_dataset$Season1Time %>%
+  str_detect(regex("Sun", ignore_case = TRUE))
+
+daysOpen <- tibble(openMondays, openTuesdays, openWednesdays, openThursdays, openFridays,
+                   openSaturdays,openSundays)
+
+farmers_market_dataset %>%
+  mutate(`Season1Days` = rowSums(daysOpen))
+```
+
+
+2. (10 points) Add a new column `WeekendOpen` indicating whether a market opens during weekends in `Season1`.
+
+# Create a tibble that consists of two rows that give a true or false if the farmers market is
+# open either Saturday or Sunday. If the farmers market is open for either day, the row sum
+# will be either a 1 or 2 and if it is not open either day, the row sum will be 0. Convert
+# the column to characters and use a regexp to change the values in the column to say 'Yes'
+# if the farmers market is open either day on the weekend and 'No' if it is not.
+```{r, eval = FALSE, echo = TRUE}
+weekendsOnly <- tibble(openSaturdays, openSundays)
+
+isOpenEitherSaturdayOrSunday <- as.character(rowSums(weekendsOnly)) %>%
+  str_replace("1|2", "Yes") %>%
+  str_replace("0", "No")
+
+farmers_market_dataset %>%
+  mutate(`WeekendOpen` = isOpenEitherSaturdayOrSunday)
+```
+
+
+3. (20 points) Find out which markets close before 6PM, and which open only for fewer than 4 hours a day. For simplicity, consider only `Season1Time`. For markets with different open hours across a week, use the average length of open hours for the days they actually open. 
+
+# First, isolate the individual times for each day the farmers market is open using regexps
+# and then parse the individual strings to times. Combine the close times into on tibble to 
+# compare if they are open past 6pm. Mutate a new column to give the number of days per week 
+# each farmers market is open past 6pm
+# Next, determine how many hours a day each farmers market is open using a timediff. Convert
+# this timediff from total seconds to number of hours.
+```{r, eval = FALSE, echo = TRUE}
+separatedOpenTimes <- farmers_market_dataset$Season1Time %>%
+  str_replace_all("[a-zA-z]+: |[a-zA-z]+:", "") %>%
+  str_replace_all(";", " ") %>%
+  str_replace_all(" - ", "-") %>%
+  str_replace_all("0( )", "0") %>%
+  str_split(" ", simplify = TRUE)
+
+tibbleSeparatedOpenTimes <- as_tibble(separatedOpenTimes)
+
+day1times <- str_split(tibbleSeparatedOpenTimes$V1, "-", simplify = TRUE) %>%
+  as_tibble()
+day1times$V1 <- parse_time(day1times$V1, "%I:%M%p")
+day1times$V2 <- parse_time(day1times$V2, "%I:%M%p")
+
+day2times <- str_split(tibbleSeparatedOpenTimes$V2, "-", simplify = TRUE) %>%
+  as_tibble()
+day2times$V1 <- parse_time(day2times$V1, "%I:%M%p")
+day2times$V2 <- parse_time(day2times$V2, "%I:%M%p")
+
+day3times <- str_split(tibbleSeparatedOpenTimes$V3, "-", simplify = TRUE) %>%
+  as_tibble()
+day3times$V1 <- parse_time(day3times$V1, "%I:%M%p")
+day3times$V2 <- parse_time(day3times$V2, "%I:%M%p")
+
+day4times <- str_split(tibbleSeparatedOpenTimes$V4, "-", simplify = TRUE) %>%
+  as_tibble()
+day4times$V1 <- parse_time(day4times$V1, "%I:%M%p")
+day4times$V2 <- parse_time(day4times$V2, "%I:%M%p")
+
+day5times <- str_split(tibbleSeparatedOpenTimes$V5, "-", simplify = TRUE) %>%
+  as_tibble()
+day5times$V1 <- parse_time(day5times$V1, "%I:%M%p")
+day5times$V2 <- parse_time(day5times$V2, "%I:%M%p")
+
+day6times <- str_split(tibbleSeparatedOpenTimes$V6, "-", simplify = TRUE) %>%
+  as_tibble()
+day6times$V1 <- parse_time(day6times$V1, "%I:%M%p")
+day6times$V2 <- parse_time(day6times$V2, "%I:%M%p")
+
+day7times <- str_split(tibbleSeparatedOpenTimes$V7, "-", simplify = TRUE) %>%
+  as_tibble()
+day7times$V1 <- parse_time(day7times$V1, "%I:%M%p")
+day7times$V2 <- parse_time(day7times$V2, "%I:%M%p")
+
+openCloseTimesEachDay <- tibble(
+  `Day1 Open` = day1times$V1,
+  `Day1 Close` = day1times$V2,
+  `Day2 Open` = day2times$V1,
+  `Day2 Close` = day2times$V2,
+  `Day3 Open` = day3times$V1,
+  `Day3 Close` = day3times$V2,
+  `Day4 Open` = day4times$V1,
+  `Day4 Close` = day4times$V2,
+  `Day5 Open` = day5times$V1,
+  `Day5 Close` = day5times$V2,
+  `Day6 Open` = day6times$V1,
+  `Day6 Close` = day6times$V2,
+  `Day7 Open` = day7times$V1,
+  `Day7 Close` = day7times$V2
+)
+
+marketsOpenPast6pm <- openCloseTimesEachDay %>%
+  select(`Day1 Close`, `Day2 Close`,`Day3 Close`, `Day4 Close`, `Day5 Close`, `Day6 Close`,
+         `Day7 Close`)
+
+farmers_market_dataset %>%
+  mutate("DaysOpenPast6pm" = rowSums(marketsOpenPast6pm > hms("18:00:00"), na.rm = TRUE))
+
+hoursOpenAWeek <- tibble(
+  `Hours Open Day 1` = (
+    openCloseTimesEachDay$`Day1 Close` - openCloseTimesEachDay$`Day1 Open`) / 3600,
+  `Hours Open Day 2` = (
+    openCloseTimesEachDay$`Day2 Close` - openCloseTimesEachDay$`Day2 Open`) / 3600,
+  `Hours Open Day 3` = (
+    openCloseTimesEachDay$`Day3 Close` - openCloseTimesEachDay$`Day3 Open`) / 3600,
+  `Hours Open Day 4` = (
+    openCloseTimesEachDay$`Day4 Close` - openCloseTimesEachDay$`Day4 Open`) / 3600,
+  `Hours Open Day 5` = (
+    openCloseTimesEachDay$`Day5 Close` - openCloseTimesEachDay$`Day5 Open`) / 3600,
+  `Hours Open Day 6` = (
+    openCloseTimesEachDay$`Day6 Close` - openCloseTimesEachDay$`Day6 Open`) / 3600,
+  `Hours Open Day 7` = (
+    openCloseTimesEachDay$`Day7 Close` - openCloseTimesEachDay$`Day7 Open`) / 3600
+)
+
+```
+
+
+3. (40 Points) The seasons are not standardized and would make analysis difficult. Create four new columns for four seasons (Spring, Summer, Fall, Winter), indicating whether a market is available in that season. Also, create two additional columns `HalfYear` and `YearRound` to identify those who open across seasons. Define "half year" and "year round" on your own terms, but explain them before you write the code (or as comments in your code). (Hint: you may want to create even more auxiliary columns, `Season1BeginDate` and `Season1EndDate` for example.)
+
+# First isolate the start and end of season 1, then parse the columns to get them into time
+# format. Then for each season check if the start and end of the season for each farmers
+# market falls within those months.
+# A market is open a half year if the total number of months from start to end is at least 6
+# and is open year round if the total number of months from start to finish is 12
+```{r, eval = FALSE, echo = TRUE}
+splitSeasons1Dates <- 
+  str_split(farmers_market_dataset$Season1Date, " to", simplify = TRUE) %>%
+  as_tibble()
+
+splitSeasons1Dates$V1 <- parse_date(splitSeasons1Dates$V1, "%m/%d/%Y")
+splitSeasons1Dates$V2 <- parse_date(splitSeasons1Dates$V2, "%m/%d/%Y")
+
+Spring <- tibble(
+  `OpenSpring` = between(month(splitSeasons1Dates$V1), 3, 5) |
+                 between(month(splitSeasons1Dates$V2), 3, 5)
+)
+ Summer <- tibble(
+  `OpenSummer` = between(month(splitSeasons1Dates$V1), 6, 8) |
+                 between(month(splitSeasons1Dates$V2), 6, 8)
+)
+ 
+Fall <- tibble(
+  `OpenFall` = between(month(splitSeasons1Dates$V1), 9, 11) |
+               between(month(splitSeasons1Dates$V2), 9, 11)
+)
+
+Winter <- tibble(
+  `OpenWinter` = between(month(splitSeasons1Dates$V1), 1, 2) |
+                 between(month(splitSeasons1Dates$V2), 1, 2) |
+                 (month(splitSeasons1Dates$V2) == 12)
+)
+
+halfYear <- tibble(
+  `OpenHalfYear` = ((month(splitSeasons1Dates$V2) - month(splitSeasons1Dates$V1)) >= 6)
+)
+
+yearRound <- tibble(
+  `OpenYearRound` = ((month(splitSeasons1Dates$V2) - month(splitSeasons1Dates$V1)) == 12)
+)
+
+farmers_market_dataset %>%
+  mutate("Spring" = Spring$OpenSpring,
+         "Summer" = Summer$OpenSummer,
+         "Fall" = Fall$OpenFall,
+         "Winter" = Winter$OpenWinter,
+         "HalfYear" = halfYear$OpenHalfYear,
+         "YearRound" = yearRound$OpenYearRound
+)
+```
+
+4. (20 points) _Open question_: explore the new variables you just created. Aggregate them at different geographic levels, or some other categorical variable. What can you discover?
+
+# When plotted as a categorical variable, you can visualize the drastic differences between
+# what seasons have the most activity but also see how many farmers markets either didn't   
+# report any dates for season 1 or reported them with inaccuracy by looking at all the 'NA'
+```{r, eval = FALSE, echo = TRUE}
+Summer %>% ggplot(aes(OpenSummer)) +
+  geom_bar()
+
+Spring %>% ggplot(aes(OpenSpring)) +
+  geom_bar()
+
+Fall %>% ggplot(aes(OpenFall)) +
+  geom_bar()
+
+Winter %>% ggplot(aes(OpenWinter)) +
+  geom_bar()
+```
